@@ -435,7 +435,7 @@ function AppInner() {
       (position) => {
         const dist = calculateDistance(STORE_LAT, STORE_LON, position.coords.latitude, position.coords.longitude);
         setUserDistance(dist.toFixed(1));
-        setLocationStatus(dist <= 100 ? 'success' : 'out_of_range');
+        setLocationStatus(dist <= 5 ? 'success' : 'out_of_range');
       },
       () => setLocationStatus('error'),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
