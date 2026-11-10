@@ -7,14 +7,14 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      includeAssets: ['logo192.png', 'logo512.png'],
       manifest: {
-        name: 'in_minutes Delivery',
+        name: 'in_minutes',
         short_name: 'in_minutes',
-        description: '10-minute village grocery delivery',
-        theme_color: '#16a34a', // Your signature green
+        description: 'Groceries delivered in 10 minutes',
+        theme_color: '#16a34a', // Your green theme color
         background_color: '#ffffff',
-        display: 'standalone', // Makes it look like a native app (no URL bar)
+        display: 'standalone', // This makes it look like a native app without a browser URL bar
         icons: [
           {
             src: 'logo192.png',
