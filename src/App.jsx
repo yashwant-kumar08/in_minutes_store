@@ -378,6 +378,7 @@ function AppInner() {
   const [customerDetails, setCustomerDetails] = useState({ name: '', phone: '', address: '' });
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [orderHistory, setOrderHistory] = useState([]);
+  const [whatsappRedirectUrl, setWhatsappRedirectUrl] = useState('');
   
   const [locationStatus, setLocationStatus] = useState('idle');
   const [userDistance, setUserDistance] = useState(null);
@@ -408,19 +409,8 @@ function AppInner() {
     const orderId = urlParams.get('order_id');
 
     if (orderId) {
-      // Clean up the URL so it doesn't trigger again on refresh
       window.history.replaceState(null, '', window.location.pathname);
-      
-      // Auto-finalize the order with paid status
       finalizeOrder('PAID ONLINE (Cashfree)');
-      
-      // Send the WhatsApp message immediately
-      const message = `✅ *NEW PAID ORDER!*\n\n*Order ID:* ${orderId}\n*Payment:* PAID ONLINE via Cashfree\n\nHello in_minutes, I just paid for my order!`;
-      const phone = STORE_PHONE;
-      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-      
-      // Open WhatsApp automatically
-      window.location.href = whatsappUrl;
     }
   }, []); // Run once on load
 
@@ -568,7 +558,6 @@ function AppInner() {
 
   const handleCashfreePayment = async () => {
     try {
-      // 1. Fetch the session ID from your backend
       const response = await fetch(`${BACKEND_URL}/create-payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -577,15 +566,12 @@ function AppInner() {
       
       const data = await response.json();
       
-      // 2. Initialize Cashfree in PRODUCTION mode
       if (data.payment_session_id) {
-        // 🔥 CHANGED TO PRODUCTION:
         const cashfreeInstance = await load({ mode: "production" }); 
         
         cashfreeInstance.checkout({ 
           paymentSessionId: data.payment_session_id, 
-          redirectTarget: "_self", // Changed from _modal so the redirect flows perfectly to the success useEffect
-          // 🔥 PRIORITIZE UPI APPS ON MOBILE:
+          redirectTarget: "_self", 
           components: ["order-details", "upi", "card", "netbanking", "wallet"] 
         }).then((result) => {
           if (result.error) alert("Payment failed or cancelled.");
@@ -600,6 +586,7 @@ function AppInner() {
     }
   };
 
+  // --- THE FIX: STORE WHATSAPP URL INSTEAD OF AUTO-OPENING ---
   const finalizeOrder = (paymentStatus) => {
     localStorage.setItem('inMinutes_userProfile', JSON.stringify(customerDetails));
     setIsEditingProfile(false);
@@ -621,9 +608,12 @@ function AppInner() {
     if (handlingFee > 0) orderText += `Convenience Charge: ₹${handlingFee}%0A`;
     orderText += `*Total: ₹${cartTotal}*%0A%0A*Customer Details:*%0AName: ${customerDetails.name}%0APhone: ${customerDetails.phone}%0AAddress: ${customerDetails.address}%0APayment: ${paymentStatus}`;
 
+    // Store the URL to be clicked manually by the user
+    const waUrl = `https://wa.me/${STORE_PHONE}?text=${orderText}`;
+    setWhatsappRedirectUrl(waUrl);
+
     confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
     setView('success');
-    window.open(`https://wa.me/${STORE_PHONE}?text=${orderText}`, '_blank');
     setCart([]);
   };
 
@@ -903,9 +893,27 @@ function AppInner() {
                   </button>
                 </form>
               </div>
-            ) : (
-              <div className="bg-white rounded-3xl shadow-sm p-8 text-center max-w-md mx-auto mt-10"><CheckCircle2 size={80} className="text-green-500 mx-auto mb-4 animate-bounce" /><h2 className="text-2xl font-extrabold text-gray-900 mb-2">Order Placed Successfully! 🎉</h2><button onClick={() => { setView('orders'); setLocationStatus('idle'); }} className="bg-gray-100 text-gray-800 px-8 py-3.5 rounded-2xl font-bold hover:bg-gray-200 mt-6">View My Orders</button></div>
-            )
+            ) : view === 'success' ? (
+              // --- THE FIX: NEW SUCCESS SCREEN WITH WHATSAPP BUTTON ---
+              <div className="bg-white rounded-3xl shadow-sm p-8 text-center max-w-md mx-auto mt-10">
+                <CheckCircle2 size={80} className="text-green-500 mx-auto mb-4 animate-bounce" />
+                <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Order Placed Successfully! 🎉</h2>
+                <p className="text-sm text-gray-600 mb-6">Click below to send your order details instantly to the store via WhatsApp.</p>
+                
+                {whatsappRedirectUrl && (
+                  <a 
+                    href={whatsappRedirectUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="w-full bg-green-600 text-white py-4 rounded-2xl font-extrabold text-base shadow-lg flex justify-center items-center gap-2 mb-3 hover:bg-green-700 transition-all"
+                  >
+                    <Send size={20} /> Send Order to WhatsApp Now
+                  </a>
+                )}
+
+                <button onClick={() => { setView('orders'); setLocationStatus('idle'); }} className="w-full bg-gray-100 text-gray-800 py-3.5 rounded-2xl font-bold hover:bg-gray-200">View My Orders</button>
+              </div>
+            ) : null
           } />
         </Routes>
       </main>
