@@ -402,6 +402,28 @@ function AppInner() {
       });
   }, []);
 
+  // --- AUTO CAPTURE CASHFREE SUCCESS ---
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderId = urlParams.get('order_id');
+
+    if (orderId) {
+      // Clean up the URL so it doesn't trigger again on refresh
+      window.history.replaceState(null, '', window.location.pathname);
+      
+      // Auto-finalize the order with paid status
+      finalizeOrder('PAID ONLINE (Cashfree)');
+      
+      // Send the WhatsApp message immediately
+      const message = `✅ *NEW PAID ORDER!*\n\n*Order ID:* ${orderId}\n*Payment:* PAID ONLINE via Cashfree\n\nHello in_minutes, I just paid for my order!`;
+      const phone = STORE_PHONE;
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+      
+      // Open WhatsApp automatically
+      window.location.href = whatsappUrl;
+    }
+  }, []); // Run once on load
+
   // --- ADMIN ROUTE PROTECTION ---
   useEffect(() => {
     if (location.pathname === '/Admin' && !isAdmin) {
@@ -562,7 +584,7 @@ function AppInner() {
         
         cashfreeInstance.checkout({ 
           paymentSessionId: data.payment_session_id, 
-          redirectTarget: "_modal",
+          redirectTarget: "_self", // Changed from _modal so the redirect flows perfectly to the success useEffect
           // 🔥 PRIORITIZE UPI APPS ON MOBILE:
           components: ["order-details", "upi", "card", "netbanking", "wallet"] 
         }).then((result) => {
