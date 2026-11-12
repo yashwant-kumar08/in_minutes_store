@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+// 🔥 ADDED useSearchParams to track screens in the URL history
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation, Navigate, useSearchParams } from 'react-router-dom';
 import { ShoppingCart, Store, MapPin, Search, CheckCircle2, Navigation, Send, LogOut, ShieldAlert, Plus, Trash2, Edit, Save, X, Truck, Image as ImageIcon, Map, Zap, User, Clock, CreditCard, Upload } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { load } from '@cashfreepayments/cashfree-js';
@@ -13,7 +14,6 @@ const BACKEND_URL = "https://in-minutes-backend.onrender.com/api";
 
 // --- EXTENSIVE PRODUCT DATABASE ---
 const initialProducts = [
-  // --- GROCERY ---
   { id: 1, category: 'Grocery', name: 'Aalu (Potato)', price: 13, image: 'https://plain-apac-prod-public.komododecks.com/202610/31/1YjD4mCJBuzZxZggWeIE/image.png', available: true, isWeighable: true },
   { id: 2, category: 'Grocery', name: 'Pyaj (Onion)', price: 50, image: 'https://plain-apac-prod-public.komododecks.com/202610/31/0c6nDnfw5cdi4YLUKUbm/image.png', available: true, isWeighable: true },
   { id: 3, category: 'Grocery', name: 'Chini (Sugar)', price: 60, image: 'https://images.unsplash.com/photo-1673791031093-eb8eefa60083?w=1000&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D', available: true, isWeighable: true },
@@ -338,6 +338,9 @@ const initialProducts = [
   { id: 274, category: 'Stationery', name: 'Slate for Kids', price: 30, image: 'https://plain-apac-prod-public.komododecks.com/202611/01/FEOYDEIaFSHlkYGpQj58/image.png', available: true, isWeighable: false },
   { id: 275, category: 'Stationery', name: 'Good English (Book)', price: 40, image: 'https://plain-apac-prod-public.komododecks.com/202611/01/oddhUvxgeC5e4yjq2W6a/image.png', available: true, isWeighable: false },
   { id: 276, category: 'Stationery', name: 'Komal Bal Pothi', price: 30, image: 'https://plain-apac-prod-public.komododecks.com/202611/01/B8Aw9LX7s7Otu5MDi61X/image.png', available: true, isWeighable: false }
+  // 🚨 IMPORTANT: PASTE YOUR FULL 300+ PRODUCT LIST HERE!
+  // I removed them here so the code doesn't get cut off.
+  // Replace this comment with all your { id: 1, name: 'Aalu'... } items!
 ];
 
 const CATEGORIES = ['All', 'Grocery', 'Green Vegetables', 'Fresh Fruits', 'Snacks', 'Drinks', 'Personal Care', 'Household', 'Stationery'];
@@ -355,6 +358,22 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 function AppInner() {
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // 🔥 THE BACK BUTTON FIX: Link the view to the browser URL so the Back button works naturally
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = searchParams.get('view') || 'store';
+
+  const setView = (newView) => {
+    if (location.pathname !== '/') {
+      navigate(`/?view=${newView}`);
+    } else {
+      if (newView === 'store') {
+        navigate('/'); // Cleans the URL for the main store
+      } else {
+        setSearchParams({ view: newView });
+      }
+    }
+  };
 
   const [currentUser, setCurrentUser] = useState(null); 
   const [loginInput, setLoginInput] = useState('');
@@ -364,8 +383,8 @@ function AppInner() {
   const [products, setProducts] = useState([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
+  // Cart state persists even when clicking the back button!
   const [cart, setCart] = useState([]);
-  const [view, setView] = useState('store');
   const [activeCategory, setActiveCategory] = useState('All');
   const [search, setSearch] = useState('');
   
@@ -375,7 +394,9 @@ function AppInner() {
   const [deliverySettings, setDeliverySettings] = useState({ fee: 20, freeThreshold: 201, handlingFee: 5 });
 
   const [paymentMethod, setPaymentMethod] = useState('COD');
-  const [customerDetails, setCustomerDetails] = useState({ name: '', phone: '', address: '' });
+  
+  // 🔥 UPDATED LOCATION DATA: Includes ward, tola, and near
+  const [customerDetails, setCustomerDetails] = useState({ name: '', phone: '', address: '', ward: '', tola: '', near: '' });
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [orderHistory, setOrderHistory] = useState([]);
   const [whatsappRedirectUrl, setWhatsappRedirectUrl] = useState('');
@@ -407,12 +428,11 @@ function AppInner() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const orderId = urlParams.get('order_id');
-
     if (orderId) {
       window.history.replaceState(null, '', window.location.pathname);
       finalizeOrder('PAID ONLINE (Cashfree)');
     }
-  }, []); // Run once on load
+  }, []);
 
   // --- ADMIN ROUTE PROTECTION ---
   useEffect(() => {
@@ -427,13 +447,20 @@ function AppInner() {
     }
   }, [location.pathname, isAdmin, navigate]);
 
-  // --- AUTO LOGIN ---
+  // --- AUTO LOGIN (UPDATED WITH NEW ADDRESS FIELDS) ---
   useEffect(() => {
     const savedProfile = localStorage.getItem('inMinutes_userProfile');
     if (savedProfile) {
       const parsed = JSON.parse(savedProfile);
       setCurrentUser({ identifier: parsed.phone, type: 'phone' });
-      setCustomerDetails({ name: parsed.name || '', phone: parsed.phone || '', address: parsed.address || '' });
+      setCustomerDetails({ 
+        name: parsed.name || '', 
+        phone: parsed.phone || '', 
+        address: parsed.address || '',
+        ward: parsed.ward || '',
+        tola: parsed.tola || '',
+        near: parsed.near || ''
+      });
     }
     const savedHistory = localStorage.getItem('inMinutes_orderHistory');
     if (savedHistory) setOrderHistory(JSON.parse(savedHistory));
@@ -459,23 +486,14 @@ function AppInner() {
   // --- ADMIN: CLOUD SYNC & DATABASE FUNCTIONS ---
   const handleSeedDatabase = async () => {
     if(!window.confirm(`This will upload ${initialProducts.length} items to the cloud. Continue?`)) return;
-    
     try {
       console.log(`🚀 Starting upload of ${initialProducts.length} products...`);
-      let count = 0;
       for(const item of initialProducts) {
-        await fetch(`${BACKEND_URL}/products`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(item)
-        });
-        count++;
+        await fetch(`${BACKEND_URL}/products`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) });
       }
       alert("✅ Upload complete! Refreshing database...");
       window.location.reload();
-    } catch (err) {
-      alert("Upload failed! Check your browser console for details.");
-    }
+    } catch (err) { alert("Upload failed! Check your browser console for details."); }
   };
 
   const handleAddProduct = async (e) => {
@@ -483,13 +501,8 @@ function AppInner() {
     if (!newProduct.name || !newProduct.price) return;
     try {
       const res = await fetch(`${BACKEND_URL}/products`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          ...newProduct, 
-          price: parseFloat(newProduct.price), 
-          image: newProduct.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200' 
-        })
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...newProduct, price: parseFloat(newProduct.price), image: newProduct.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200' })
       });
       const added = await res.json();
       setProducts([added, ...products]);
@@ -499,11 +512,7 @@ function AppInner() {
 
   const saveEditedProduct = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/products/${editingProduct.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingProduct)
-      });
+      const res = await fetch(`${BACKEND_URL}/products/${editingProduct.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editingProduct) });
       const updated = await res.json();
       setProducts(products.map(p => p.id === updated.id ? updated : p));
       setEditingProduct(null);
@@ -520,11 +529,7 @@ function AppInner() {
 
   const toggleAvailability = async (product) => {
     try {
-      const res = await fetch(`${BACKEND_URL}/products/${product.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ available: !product.available })
-      });
+      const res = await fetch(`${BACKEND_URL}/products/${product.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ available: !product.available }) });
       const updated = await res.json();
       setProducts(products.map(p => p.id === product.id ? updated : p));
     } catch (err) { alert("Failed to update status."); }
@@ -535,13 +540,11 @@ function AppInner() {
     const cartId = product.isWeighable ? `${product.id}-${variant}` : `${product.id}-default`;
     let finalPrice = product.price;
     let finalName = product.name;
-    
     if (product.isWeighable) {
       if (variant === '500g') finalPrice = Math.ceil(product.price / 2);
       if (variant === '250g') finalPrice = Math.ceil(product.price / 4);
       finalName = `${product.name} (${variant})`;
     }
-
     setCart(prev => {
       const exists = prev.find(item => item.cartId === cartId);
       if (exists) return prev.map(item => item.cartId === cartId ? { ...item, quantity: item.quantity + 1 } : item);
@@ -559,34 +562,21 @@ function AppInner() {
   const handleCashfreePayment = async () => {
     try {
       const response = await fetch(`${BACKEND_URL}/create-payment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: cartTotal, customerPhone: customerDetails.phone, customerName: customerDetails.name })
       });
-      
       const data = await response.json();
-      
       if (data.payment_session_id) {
         const cashfreeInstance = await load({ mode: "production" }); 
-        
-        cashfreeInstance.checkout({ 
-          paymentSessionId: data.payment_session_id, 
-          redirectTarget: "_self", 
-          components: ["order-details", "upi", "card", "netbanking", "wallet"] 
-        }).then((result) => {
+        cashfreeInstance.checkout({ paymentSessionId: data.payment_session_id, redirectTarget: "_self", components: ["order-details", "upi", "card", "netbanking", "wallet"] }).then((result) => {
           if (result.error) alert("Payment failed or cancelled.");
           if (result.redirect || result.paymentDetails) finalizeOrder("Paid via Cashfree Online");
         });
-      } else {
-        alert("Payment Error: " + (data.message || data.error || "Failed to generate session"));
-      }
-    } catch (error) { 
-      console.error("Frontend Error:", error);
-      alert("Browser Error: Check your browser's inspect console."); 
-    }
+      } else { alert("Payment Error: " + (data.message || data.error || "Failed to generate session")); }
+    } catch (error) { console.error("Frontend Error:", error); alert("Browser Error: Check your browser's inspect console."); }
   };
 
-  // --- THE FIX: STORE WHATSAPP URL INSTEAD OF AUTO-OPENING ---
+  // 🔥 UPDATED: WhatsApp message properly displays Ward, Tola, and Near
   const finalizeOrder = (paymentStatus) => {
     localStorage.setItem('inMinutes_userProfile', JSON.stringify(customerDetails));
     setIsEditingProfile(false);
@@ -594,9 +584,7 @@ function AppInner() {
     const newOrder = {
       id: Date.now(),
       date: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }),
-      items: cart,
-      total: cartTotal,
-      status: 'Sent to WhatsApp'
+      items: cart, total: cartTotal, status: 'Sent to WhatsApp'
     };
     const updatedHistory = [newOrder, ...orderHistory];
     setOrderHistory(updatedHistory);
@@ -606,9 +594,16 @@ function AppInner() {
     cart.forEach(item => { orderText += `${item.quantity}x ${item.name} ₹${item.price * item.quantity}%0A`; });
     orderText += `---------------------%0ASubtotal: ₹${cartSubtotal}%0ADelivery Fee: ${deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}%0A`;
     if (handlingFee > 0) orderText += `Convenience Charge: ₹${handlingFee}%0A`;
-    orderText += `*Total: ₹${cartTotal}*%0A%0A*Customer Details:*%0AName: ${customerDetails.name}%0APhone: ${customerDetails.phone}%0AAddress: ${customerDetails.address}%0APayment: ${paymentStatus}`;
+    
+    orderText += `*Total: ₹${cartTotal}*%0A%0A*Customer Details:*%0A`;
+    orderText += `Name: ${customerDetails.name}%0A`;
+    orderText += `Phone: ${customerDetails.phone}%0A`;
+    orderText += `Address: ${customerDetails.address}%0A`;
+    orderText += `Ward No: ${customerDetails.ward}%0A`;
+    orderText += `Tola: ${customerDetails.tola}%0A`;
+    orderText += `Near: ${customerDetails.near}%0A`;
+    orderText += `Payment: ${paymentStatus}`;
 
-    // Store the URL to be clicked manually by the user
     const waUrl = `https://wa.me/${STORE_PHONE}?text=${orderText}`;
     setWhatsappRedirectUrl(waUrl);
 
@@ -637,9 +632,8 @@ function AppInner() {
 
   const handleLogout = () => {
     if (window.confirm("Log out?")) {
-      localStorage.removeItem('inMinutes_userProfile');
-      localStorage.removeItem('inMinutes_orderHistory');
-      setOrderHistory([]); setCurrentUser(null); setCustomerDetails({ name: '', phone: '', address: '' }); setCart([]); setView('store'); setIsAdmin(false); navigate('/');
+      localStorage.removeItem('inMinutes_userProfile'); localStorage.removeItem('inMinutes_orderHistory');
+      setOrderHistory([]); setCurrentUser(null); setCustomerDetails({ name: '', phone: '', address: '', ward: '', tola: '', near: '' }); setCart([]); setView('store'); setIsAdmin(false);
     }
   };
 
@@ -680,15 +674,15 @@ function AppInner() {
     <div className="min-h-screen bg-gray-50 pb-20 font-sans">
       <header className="bg-green-600 text-white p-4 sticky top-0 z-50 shadow-md">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
-          <div onClick={() => { setView('store'); navigate('/'); }} className="cursor-pointer">
+          <div onClick={() => setView('store')} className="cursor-pointer">
             <div className="flex items-center gap-2"><div className="bg-white p-1 rounded-lg shadow-sm"><Zap size={20} className="text-green-600 fill-green-600" /></div><h1 className="text-xl font-extrabold italic tracking-tight leading-tight">in_minutes</h1></div>
             <p className="text-[10px] text-green-100 font-medium mt-1 tracking-wide">Support: 7858967429</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => { setView('orders'); navigate('/'); }} className={`p-2 rounded-full transition-colors ${view === 'orders' && location.pathname === '/' ? 'bg-white text-green-700' : 'bg-green-700 text-white hover:bg-green-800'}`}><Clock size={20} /></button>
+            <button onClick={() => setView('orders')} className={`p-2 rounded-full transition-colors ${view === 'orders' && location.pathname === '/' ? 'bg-white text-green-700' : 'bg-green-700 text-white hover:bg-green-800'}`}><Clock size={20} /></button>
             <button onClick={() => navigate('/Admin')} className={`p-2 rounded-full transition-colors ${location.pathname === '/Admin' ? 'bg-amber-500 text-white' : 'bg-green-700 text-white'}`}><ShieldAlert size={20} /></button>
             <button onClick={handleLogout} className="p-2 bg-green-700 rounded-full hover:bg-green-800"><LogOut size={18} /></button>
-            <button onClick={() => { setView('cart'); navigate('/'); }} className={`relative p-2 rounded-full transition-colors ${view === 'cart' || view === 'checkout' ? 'bg-white text-green-700' : 'bg-green-700 text-white hover:bg-green-800'}`}>
+            <button onClick={() => setView('cart')} className={`relative p-2 rounded-full transition-colors ${view === 'cart' || view === 'checkout' ? 'bg-white text-green-700' : 'bg-green-700 text-white hover:bg-green-800'}`}>
               <ShoppingCart size={20} />
               {cart.length > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-green-600">{cart.reduce((s,i)=>s+i.quantity,0)}</span>}
             </button>
@@ -869,16 +863,36 @@ function AppInner() {
                     {locationStatus === 'error' && <div><p className="text-sm text-orange-800 font-bold mb-2">Please allow location access to verify delivery range.</p><button type="button" onClick={verifyLocation} className="w-full bg-orange-600 text-white py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-orange-700">Retry Location Access</button></div>}
                   </div>
                   <div className="border border-gray-200 rounded-2xl overflow-hidden mt-4">
-                    <div className="bg-gray-100 p-3 border-b border-gray-200 flex justify-between items-center"><h3 className="font-bold text-gray-800 text-sm flex items-center gap-1.5"><User size={16}/> Delivery Address</h3>{(customerDetails.name && customerDetails.address && !isEditingProfile) && (<button type="button" onClick={() => setIsEditingProfile(true)} className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"><Edit size={12}/> Edit</button>)}</div>
-                    {(!customerDetails.name || !customerDetails.address || isEditingProfile) ? (
-                      <div className="p-4 space-y-3 bg-white">
-                        <div><label className="block text-xs font-bold text-gray-700 uppercase mb-1">Full Name</label><input required type="text" value={customerDetails.name} className="w-full p-3 border rounded-xl bg-gray-50 focus:bg-white text-sm font-medium" onChange={e => setCustomerDetails({...customerDetails, name: e.target.value})} /></div>
+                    {/* 🔥 UPDATED: Address Form Includes Ward, Tola, and Near */}
+                    <div className="bg-gray-100 p-3 border-b border-gray-200 flex justify-between items-center"><h3 className="font-bold text-gray-800 text-sm flex items-center gap-1.5"><User size={16}/> Delivery Address</h3>{(customerDetails.name && customerDetails.address && customerDetails.ward && customerDetails.near && !isEditingProfile) && (<button type="button" onClick={() => setIsEditingProfile(true)} className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"><Edit size={12}/> Edit</button>)}</div>
+                    
+                    {(!customerDetails.name || !customerDetails.address || !customerDetails.ward || !customerDetails.near || isEditingProfile) ? (
+                      <div className="p-4 space-y-4 bg-white">
+                        <div><label className="block text-xs font-bold text-gray-700 uppercase mb-1">Full Name</label><input required type="text" value={customerDetails.name} className="w-full p-3 border rounded-xl bg-gray-50 focus:bg-white text-sm font-medium" onChange={e => setCustomerDetails({...customerDetails, name: e.target.value})} placeholder="e.g. Yashwant Kumar" /></div>
+                        
                         <div><label className="block text-xs font-bold text-gray-700 uppercase mb-1">Mobile Number</label><input required type="tel" value={customerDetails.phone || (loginType==='phone'?loginInput:'')} className="w-full p-3 border rounded-xl bg-gray-50 focus:bg-white text-sm font-medium" onChange={e => setCustomerDetails({...customerDetails, phone: e.target.value})} /></div>
-                        <div><label className="block text-xs font-bold text-gray-700 uppercase mb-1">Village Address & Landmark</label><textarea required rows="2" value={customerDetails.address} className="w-full p-3 border rounded-xl bg-gray-50 focus:bg-white resize-none text-sm font-medium" onChange={e => setCustomerDetails({...customerDetails, address: e.target.value})}></textarea></div>
+                        
+                        <div><label className="block text-xs font-bold text-gray-700 uppercase mb-1">Village / Address</label><input required type="text" value={customerDetails.address} className="w-full p-3 border rounded-xl bg-gray-50 focus:bg-white text-sm font-medium" onChange={e => setCustomerDetails({...customerDetails, address: e.target.value})} placeholder="e.g. Mahthawa" /></div>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><label className="block text-xs font-bold text-gray-700 uppercase mb-1">Ward No.</label><input required type="number" value={customerDetails.ward} className="w-full p-3 border rounded-xl bg-gray-50 focus:bg-white text-sm font-medium" onChange={e => setCustomerDetails({...customerDetails, ward: e.target.value})} placeholder="e.g. 05" /></div>
+                          <div><label className="block text-xs font-bold text-gray-700 uppercase mb-1">Tola</label><input type="text" value={customerDetails.tola} className="w-full p-3 border rounded-xl bg-gray-50 focus:bg-white text-sm font-medium" onChange={e => setCustomerDetails({...customerDetails, tola: e.target.value})} placeholder="e.g. Purab Tola" /></div>
+                        </div>
+                        
+                        <div><label className="block text-xs font-bold text-gray-700 uppercase mb-1">Near (Landmark)</label><input required type="text" value={customerDetails.near} className="w-full p-3 border rounded-xl bg-gray-50 focus:bg-white text-sm font-medium" onChange={e => setCustomerDetails({...customerDetails, near: e.target.value})} placeholder="e.g. Near Shiv Mandir" /></div>
+
                         {isEditingProfile && (<button type="button" onClick={() => setIsEditingProfile(false)} className="w-full bg-blue-50 text-blue-700 border border-blue-200 py-2.5 rounded-xl text-sm font-bold mt-2 shadow-sm hover:bg-blue-100">Save Address Details</button>)}
                       </div>
                     ) : (
-                      <div className="p-4 bg-white"><p className="font-extrabold text-sm text-gray-900">{customerDetails.name}</p><p className="text-xs text-gray-600 font-medium mt-1">📞 {customerDetails.phone}</p><p className="text-xs text-gray-600 font-medium mt-1">📍 {customerDetails.address}</p></div>
+                      <div className="p-4 bg-white">
+                        <p className="font-extrabold text-sm text-gray-900">{customerDetails.name}</p>
+                        <p className="text-xs text-gray-600 font-medium mt-1">📞 {customerDetails.phone}</p>
+                        <p className="text-xs text-gray-700 font-medium mt-1.5 leading-relaxed bg-gray-50 p-2 rounded-lg border border-gray-100">
+                          📍 {customerDetails.address}<br/>
+                          Ward No: {customerDetails.ward}, Tola: {customerDetails.tola || 'N/A'}<br/>
+                          Near: {customerDetails.near}
+                        </p>
+                      </div>
                     )}
                   </div>
                   <div className="pt-2">
@@ -894,7 +908,6 @@ function AppInner() {
                 </form>
               </div>
             ) : view === 'success' ? (
-              // --- THE FIX: NEW SUCCESS SCREEN WITH WHATSAPP BUTTON ---
               <div className="bg-white rounded-3xl shadow-sm p-8 text-center max-w-md mx-auto mt-10">
                 <CheckCircle2 size={80} className="text-green-500 mx-auto mb-4 animate-bounce" />
                 <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Order Placed Successfully! 🎉</h2>
@@ -921,7 +934,6 @@ function AppInner() {
   );
 }
 
-// Global wrapper to provide React Router context to the entire app
 export default function App() {
   return (
     <Router>
