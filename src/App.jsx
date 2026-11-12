@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// 🔥 ADDED useSearchParams to track screens in the URL history
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation, Navigate, useSearchParams } from 'react-router-dom';
 import { ShoppingCart, Store, MapPin, Search, CheckCircle2, Navigation, Send, LogOut, ShieldAlert, Plus, Trash2, Edit, Save, X, Truck, Image as ImageIcon, Map, Zap, User, Clock, CreditCard, Upload } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -359,7 +358,6 @@ function AppInner() {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // 🔥 THE BACK BUTTON FIX: Link the view to the browser URL so the Back button works naturally
   const [searchParams, setSearchParams] = useSearchParams();
   const view = searchParams.get('view') || 'store';
 
@@ -368,7 +366,7 @@ function AppInner() {
       navigate(`/?view=${newView}`);
     } else {
       if (newView === 'store') {
-        navigate('/'); // Cleans the URL for the main store
+        navigate('/'); 
       } else {
         setSearchParams({ view: newView });
       }
@@ -383,7 +381,6 @@ function AppInner() {
   const [products, setProducts] = useState([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
-  // Cart state persists even when clicking the back button!
   const [cart, setCart] = useState([]);
   const [activeCategory, setActiveCategory] = useState('All');
   const [search, setSearch] = useState('');
@@ -393,9 +390,11 @@ function AppInner() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [deliverySettings, setDeliverySettings] = useState({ fee: 20, freeThreshold: 201, handlingFee: 5 });
 
+  // 🔥 NEW: Store Open/Close Status State
+  const [storeStatus, setStoreStatus] = useState({ isOpen: true, openTime: 'Tomorrow at 8:00 AM' });
+
   const [paymentMethod, setPaymentMethod] = useState('COD');
   
-  // 🔥 UPDATED LOCATION DATA: Includes ward, tola, and near
   const [customerDetails, setCustomerDetails] = useState({ name: '', phone: '', address: '', ward: '', tola: '', near: '' });
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [orderHistory, setOrderHistory] = useState([]);
@@ -447,7 +446,7 @@ function AppInner() {
     }
   }, [location.pathname, isAdmin, navigate]);
 
-  // --- AUTO LOGIN (UPDATED WITH NEW ADDRESS FIELDS) ---
+  // --- AUTO LOGIN ---
   useEffect(() => {
     const savedProfile = localStorage.getItem('inMinutes_userProfile');
     if (savedProfile) {
@@ -576,7 +575,6 @@ function AppInner() {
     } catch (error) { console.error("Frontend Error:", error); alert("Browser Error: Check your browser's inspect console."); }
   };
 
-  // 🔥 UPDATED: WhatsApp message properly displays Ward, Tola, and Near
   const finalizeOrder = (paymentStatus) => {
     localStorage.setItem('inMinutes_userProfile', JSON.stringify(customerDetails));
     setIsEditingProfile(false);
@@ -669,7 +667,6 @@ function AppInner() {
     .filter(p => activeCategory === 'All' || p.category === activeCategory)
     .filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
 
-  // Render the header globally across all routes
   return (
     <div className="min-h-screen bg-gray-50 pb-20 font-sans">
       <header className="bg-green-600 text-white p-4 sticky top-0 z-50 shadow-md">
@@ -692,7 +689,6 @@ function AppInner() {
 
       <main className="max-w-4xl mx-auto p-4">
         <Routes>
-          {/* ADMIN DASHBOARD ROUTE */}
           <Route path="/Admin" element={
             isAdmin ? (
               <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
@@ -709,6 +705,22 @@ function AppInner() {
                     </button>
                   </div>
                 )}
+
+                {/* 🔥 NEW: Store Open/Close Status Control */}
+                <div className="bg-purple-50 p-5 rounded-xl mb-6 border border-purple-100">
+                  <h3 className="font-bold text-sm text-purple-800 mb-3 flex items-center gap-2">🏪 Store Status Control</h3>
+                  <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                    <button onClick={() => setStoreStatus({...storeStatus, isOpen: !storeStatus.isOpen})} className={`px-6 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center gap-2 ${storeStatus.isOpen ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-red-600 text-white hover:bg-red-700'}`}>
+                      {storeStatus.isOpen ? '🟢 Store is OPEN (Click to Close)' : '🔴 Store is CLOSED (Click to Open)'}
+                    </button>
+                    {!storeStatus.isOpen && (
+                      <div className="w-full md:w-auto flex-1">
+                        <label className="text-xs font-bold text-gray-700 uppercase mb-1 block">When will delivery resume?</label>
+                        <input type="text" value={storeStatus.openTime} onChange={e => setStoreStatus({...storeStatus, openTime: e.target.value})} placeholder="e.g. Tomorrow at 8:00 AM" className="w-full p-2.5 border rounded-lg bg-white text-sm font-semibold shadow-sm focus:ring-2 focus:ring-purple-500 outline-none"/>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 <div className="bg-orange-50 p-5 rounded-xl mb-6 border border-orange-100">
                   <h3 className="font-bold text-sm text-orange-800 mb-3 flex items-center gap-2">⚙️ Delivery & Handling Charges</h3>
@@ -769,7 +781,6 @@ function AppInner() {
             ) : <Navigate to="/" />
           } />
 
-          {/* MAIN STORE ROUTE */}
           <Route path="/" element={
             view === 'orders' ? (
               <div className="bg-white rounded-3xl shadow-sm p-6 border border-gray-100 max-w-2xl mx-auto">
@@ -797,6 +808,15 @@ function AppInner() {
               </div>
             ) : view === 'store' ? (
               <>
+                {/* 🔥 NEW: Store Closed Banner */}
+                {!storeStatus.isOpen && (
+                  <div className="bg-red-50 border-2 border-red-200 p-4 rounded-2xl mb-4 text-center shadow-sm relative overflow-hidden">
+                    <div className="inline-block bg-red-100 p-2.5 rounded-full mb-2"><Store size={24} className="text-red-600" /></div>
+                    <h3 className="text-lg font-extrabold text-red-800 leading-tight">We are currently closed!</h3>
+                    <p className="text-sm font-bold text-red-600 mt-1">Delivery will resume: <span className="text-red-900 bg-red-100 px-2 py-0.5 rounded ml-1">{storeStatus.openTime}</span></p>
+                  </div>
+                )}
+
                 <div className="mb-4 relative"><Search className="absolute left-3.5 top-3.5 text-gray-400" size={20} /><input type="text" placeholder="Search items..." className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white font-medium text-sm" onChange={(e) => setSearch(e.target.value)} /></div>
                 <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">{CATEGORIES.map(cat => (<button key={cat} onClick={() => setActiveCategory(cat)} className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold transition-all ${activeCategory === cat ? 'bg-green-600 text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200'}`}>{cat}</button>))}</div>
                 
@@ -847,7 +867,15 @@ function AppInner() {
                       <div className="flex justify-between text-sm"><span className="text-gray-600 font-medium">Delivery Fee <span className="text-xs text-green-600 font-bold">(Free above ₹{deliverySettings.freeThreshold})</span></span><span className={deliveryFee === 0 ? 'text-green-600 font-bold' : 'text-gray-700 font-bold'}>{deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}</span></div>
                       <div className="flex justify-between font-extrabold text-lg pt-3 border-t border-gray-200 text-gray-900"><span>Grand Total</span><span>₹{cartTotal}</span></div>
                     </div>
-                    <button onClick={() => setView('checkout')} className="w-full mt-6 bg-green-600 text-white py-4 rounded-2xl font-extrabold text-base shadow-lg hover:bg-green-700">Proceed to Checkout 🛍️</button>
+                    
+                    {/* 🔥 NEW: Disables Checkout button if store is closed */}
+                    <button 
+                      disabled={!storeStatus.isOpen} 
+                      onClick={() => setView('checkout')} 
+                      className={`w-full mt-6 py-4 rounded-2xl font-extrabold text-base shadow-lg transition-all ${storeStatus.isOpen ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                    >
+                      {storeStatus.isOpen ? 'Proceed to Checkout 🛍️' : `Closed. Opens ${storeStatus.openTime}`}
+                    </button>
                   </>
                 )}
               </div>
@@ -863,22 +891,17 @@ function AppInner() {
                     {locationStatus === 'error' && <div><p className="text-sm text-orange-800 font-bold mb-2">Please allow location access to verify delivery range.</p><button type="button" onClick={verifyLocation} className="w-full bg-orange-600 text-white py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-orange-700">Retry Location Access</button></div>}
                   </div>
                   <div className="border border-gray-200 rounded-2xl overflow-hidden mt-4">
-                    {/* 🔥 UPDATED: Address Form Includes Ward, Tola, and Near */}
                     <div className="bg-gray-100 p-3 border-b border-gray-200 flex justify-between items-center"><h3 className="font-bold text-gray-800 text-sm flex items-center gap-1.5"><User size={16}/> Delivery Address</h3>{(customerDetails.name && customerDetails.address && customerDetails.ward && customerDetails.near && !isEditingProfile) && (<button type="button" onClick={() => setIsEditingProfile(true)} className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"><Edit size={12}/> Edit</button>)}</div>
                     
                     {(!customerDetails.name || !customerDetails.address || !customerDetails.ward || !customerDetails.near || isEditingProfile) ? (
                       <div className="p-4 space-y-4 bg-white">
                         <div><label className="block text-xs font-bold text-gray-700 uppercase mb-1">Full Name</label><input required type="text" value={customerDetails.name} className="w-full p-3 border rounded-xl bg-gray-50 focus:bg-white text-sm font-medium" onChange={e => setCustomerDetails({...customerDetails, name: e.target.value})} placeholder="e.g. Yashwant Kumar" /></div>
-                        
                         <div><label className="block text-xs font-bold text-gray-700 uppercase mb-1">Mobile Number</label><input required type="tel" value={customerDetails.phone || (loginType==='phone'?loginInput:'')} className="w-full p-3 border rounded-xl bg-gray-50 focus:bg-white text-sm font-medium" onChange={e => setCustomerDetails({...customerDetails, phone: e.target.value})} /></div>
-                        
                         <div><label className="block text-xs font-bold text-gray-700 uppercase mb-1">Village / Address</label><input required type="text" value={customerDetails.address} className="w-full p-3 border rounded-xl bg-gray-50 focus:bg-white text-sm font-medium" onChange={e => setCustomerDetails({...customerDetails, address: e.target.value})} placeholder="e.g. Mahthawa" /></div>
-                        
                         <div className="grid grid-cols-2 gap-3">
                           <div><label className="block text-xs font-bold text-gray-700 uppercase mb-1">Ward No.</label><input required type="number" value={customerDetails.ward} className="w-full p-3 border rounded-xl bg-gray-50 focus:bg-white text-sm font-medium" onChange={e => setCustomerDetails({...customerDetails, ward: e.target.value})} placeholder="e.g. 05" /></div>
                           <div><label className="block text-xs font-bold text-gray-700 uppercase mb-1">Tola</label><input type="text" value={customerDetails.tola} className="w-full p-3 border rounded-xl bg-gray-50 focus:bg-white text-sm font-medium" onChange={e => setCustomerDetails({...customerDetails, tola: e.target.value})} placeholder="e.g. Purab Tola" /></div>
                         </div>
-                        
                         <div><label className="block text-xs font-bold text-gray-700 uppercase mb-1">Near (Landmark)</label><input required type="text" value={customerDetails.near} className="w-full p-3 border rounded-xl bg-gray-50 focus:bg-white text-sm font-medium" onChange={e => setCustomerDetails({...customerDetails, near: e.target.value})} placeholder="e.g. Near Shiv Mandir" /></div>
 
                         {isEditingProfile && (<button type="button" onClick={() => setIsEditingProfile(false)} className="w-full bg-blue-50 text-blue-700 border border-blue-200 py-2.5 rounded-xl text-sm font-bold mt-2 shadow-sm hover:bg-blue-100">Save Address Details</button>)}
